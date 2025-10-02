@@ -20,7 +20,11 @@ RUN  mkdir -p /var/www/static/ \
      && pip install --upgrade pip \
      && pip install -r requirements.txt
 
+
+
 COPY . .
+
+RUN python manage.py collectstatic --no-input
 
 EXPOSE 8000
 
