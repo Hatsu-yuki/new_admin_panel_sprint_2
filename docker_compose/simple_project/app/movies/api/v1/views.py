@@ -2,17 +2,17 @@ from django.contrib.postgres.aggregates import ArrayAgg
 from django.db.models import Q, Value
 from django.http import JsonResponse
 from django.http import Http404
+from django.views.generic.detail import BaseDetailView
 from django.views.generic.list import BaseListView
 
 from movies.models import FilmWork, Roles
 
 class MoviesMixin:
     paginate_by = 50
-    model = FilmWork
     http_method_names = ['get']
 
     def get_queryset(self):
-        return FilmWork.objects.all().values("id", "title", "description",
+        return FilmWork.objects.values("id", "title", "description",
                                              "creation_date", "rating",
                                              "type") \
             .annotate(genres=ArrayAgg('genres__name', distinct=True)) \
@@ -51,10 +51,10 @@ class MoviesListApi(MoviesMixin, BaseListView):
         return context
 
 
-class MoviesDetailApi(MoviesMixin, BaseListView):
-
-    def get_context_data(self):
-        detail_data = self.get_queryset().get(id=self.kwargs.get('pk'))
+class MoviesDetailApi(MoviesMixin, BaseDetailView):
+    def get_context_data(self, **kwargs):
+        detail_data = self.object
         if not detail_data:
             raise Http404("Фильм не найден")
         return detail_data
+
