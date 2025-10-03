@@ -5,28 +5,45 @@ from django.views.generic.list import BaseListView
 
 from movies.models import FilmWork
 
-
-class MoviesListApi(BaseListView):
-    model = FilmWork
-    http_method_names = ['get']  # Список методов, которые реализует обработчик
+class MoviesMixin:
     paginate_by = 50
+    model = FilmWork
+    http_method_names = ['get']
 
     def get_queryset(self):
         return FilmWork.objects.all().values("id", "title", "description",
                                              "creation_date", "rating",
-                                             "type")
-    def get_context_data(self, *, object_list=None, **kwargs):
-
-        queryset = self.get_queryset()
-        paginator, page, queryset, is_paginated = self.paginate_queryset(queryset, self.paginate_by)
-        context = {
-            'count': paginator.count,
-            'total_pages': paginator.num_pages,
-            'prev': page.previous_page_number() if page.has_previous() else None,
-            'next': page.next_page_number() if page.has_next() else None,
-            'results': list(queryset),
-        }
-        return context
+                                             "type") \
+            .annotate(genres=ArrayAgg('genres__name', distinct=True)) \
+            .annotate(actors=ArrayAgg(
+                'persons__full_name',
+                distinct=True,
+                filter=Q(personfilmwork__role=Roles.ACTOR),
+                default=Value([]))) \
+            .annotate(directors=ArrayAgg(
+                'persons__full_name', distinct=True,
+                filter=Q(personfilmwork__role=Roles.DIRECTOR),
+                default=Value([]))) \
+            .annotate(writers=ArrayAgg(
+                'persons__full_name',
+                distinct=True,
+                filter=Q(personfilmwork__role=Roles.WRITER),
+                default=Value([])))
 
     def render_to_response(self, context, **response_kwargs):
         return JsonResponse(context)
+
+class MoviesListApi(MoviesMixin, BaseListView):
+
+    def get_context_data(self, *, object_list=None, **kwargs):
+        queryset = self.get_queryset()
+        paginator, page, queryset, is_paginated = \
+            self.paginate_queryset(queryset, self.paginate_by)
+        context = {
+            'count': paginator.count,
+            'prev': page.previous_page_number() if page.has_previous() else None,
+            'results': list(queryset),
+            'next': page.next_page_number() if page.has_next() else None,
+            'total_pages': paginator.num_pages
+        }
+        return context
