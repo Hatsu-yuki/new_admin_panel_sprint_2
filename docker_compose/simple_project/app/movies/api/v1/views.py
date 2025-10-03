@@ -1,9 +1,10 @@
 from django.contrib.postgres.aggregates import ArrayAgg
-from django.db.models import Q
+from django.db.models import Q, Value
 from django.http import JsonResponse
+from django.http import Http404
 from django.views.generic.list import BaseListView
 
-from movies.models import FilmWork
+from movies.models import FilmWork, Roles
 
 class MoviesMixin:
     paginate_by = 50
@@ -33,6 +34,7 @@ class MoviesMixin:
     def render_to_response(self, context, **response_kwargs):
         return JsonResponse(context)
 
+
 class MoviesListApi(MoviesMixin, BaseListView):
 
     def get_context_data(self, *, object_list=None, **kwargs):
@@ -47,3 +49,12 @@ class MoviesListApi(MoviesMixin, BaseListView):
             'total_pages': paginator.num_pages
         }
         return context
+
+
+class MoviesDetailApi(MoviesMixin, BaseListView):
+
+    def get_context_data(self):
+        detail_data = self.get_queryset().get(id=self.kwargs.get('pk'))
+        if not detail_data:
+            raise Http404("Фильм не найден")
+        return detail_data
